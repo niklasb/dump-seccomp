@@ -19,8 +19,11 @@ SECCOMP_MODE_STRICT = 1
 SECCOMP_MODE_FILTER = 2
 
 def get_bpf_dbg_path():
-    script_path = inspect.getfile(inspect.currentframe())
-    return os.path.join(os.path.dirname(os.path.abspath(script_path)), 'bpf_dbg')
+    script_path = os.path.abspath(
+            os.path.expanduser(
+                inspect.getfile(inspect.currentframe())))
+    return os.path.join(os.path.dirname(script_path),
+            'bpf_dbg')
 
 def execute(cmd):
     return gdb.execute(cmd, False, True)
@@ -80,7 +83,7 @@ def dump_filters(fprog_addr):
     num, filter_ary = struct.unpack(
             fmt, read(fprog_addr, struct.calcsize(fmt)))
     log('  fprog @ %016x'% fprog_addr)
-    log('  %d filters @ %016x' % (num, filter_ary))
+    log('  %d blocks @ %016x' % (num, filter_ary))
     block_fmt = '<HBBI'
     block_sz = struct.calcsize(block_fmt)
     blocks = []
