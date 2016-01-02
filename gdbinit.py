@@ -42,21 +42,23 @@ def get_registers():
         regs[parts[0]] = int(parts[1], 16)
     return regs
 
-arch = get_arch()
-if 'x86-64' in arch:
-    bits = 64
-elif 'x86' in arch:
-    bits = 32
-else:
-    raise Exception('Unsupported platform: ' + arch)
-
 logfile = 'seccomp.log'
 f = open(logfile, 'w')
 print('Writing to logfile %s' % logfile)
+
 def log(s):
     print(s)
     print(s, file=f)
     f.flush()
+
+arch = get_arch()
+log('Using architecture %s' % arch)
+if 'x86-64' in arch:
+    bits = 64
+elif 'i386' in arch:
+    bits = 32
+else:
+    raise Exception('Unsupported platform: ' + arch)
 
 def read(start, size):
     out = execute('x/{}bx {}'.format(size, start))
