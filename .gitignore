@@ -1,2 +1,5 @@
 *.log
 bpf_dbg
+.gdb_history
+*.pyc
+__pycache__

@@ -1001,6 +1001,35 @@ static void try_close_pcap(void)
 	}
 }
 
+static int cmd_load_bpf_file(char *filename)
+{
+	FILE * fp = fopen(filename, "r");
+	fseek(fp, 0L, SEEK_END);
+	bpf_prog_len = ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+
+	if (bpf_prog_len % sizeof bpf_image[0] != 0) {
+		rl_printf("File size is not a multiple of block size!\n");
+		fclose(fp);
+		bpf_prog_len = 0;
+		return CMD_ERR;
+	}
+	bpf_prog_len /= sizeof bpf_image[0];
+	if (bpf_prog_len > BPF_MAXINSNS || bpf_prog_len == 0) {
+		rl_printf("Invalid length!\n");
+		fclose(fp);
+		bpf_prog_len = 0;
+		return CMD_ERR;
+	}
+	fread(bpf_image, sizeof bpf_image[0], bpf_prog_len, fp);
+	if (!bpf_runnable(bpf_image, bpf_prog_len)) {
+		bpf_prog_len = 0;
+		return CMD_ERR;
+	}
+	fclose(fp);
+	return CMD_OK;
+}
+
 static int cmd_load_bpf(char *bpf_string)
 {
 	char sp, *token, separator = ',';
@@ -1076,10 +1105,13 @@ static int cmd_load(char *arg)
 		ret = cmd_load_bpf(cont);
 	} else if (matches(subcmd, "pcap") == 0) {
 		ret = cmd_load_pcap(cont);
+	} else if (matches(subcmd, "file") == 0) {
+		ret = cmd_load_bpf_file(cont);
 	} else {
 out:
 		rl_printf("bpf <code>:  load bpf code\n");
 		rl_printf("pcap <file>: load pcap file\n");
+		rl_printf("file <file>: load raw file\n");
 		ret = CMD_ERR;
 	}
 

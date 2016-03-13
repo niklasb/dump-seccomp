@@ -12,18 +12,18 @@ import re
 import struct
 import subprocess
 import traceback
+import sys
+
+script_path = os.path.dirname(os.path.abspath(
+        os.path.expanduser(
+            inspect.getfile(inspect.currentframe()))))
+sys.path.append(script_path)
+import bpf
 
 PR_SET_NO_NEW_PRIVS = 38
 PR_SET_SECCOMP = 22
 SECCOMP_MODE_STRICT = 1
 SECCOMP_MODE_FILTER = 2
-
-def get_bpf_dbg_path():
-    script_path = os.path.abspath(
-            os.path.expanduser(
-                inspect.getfile(inspect.currentframe())))
-    return os.path.join(os.path.dirname(script_path),
-            'bpf_dbg')
 
 def execute(cmd):
     return gdb.execute(cmd, False, True)
@@ -68,32 +68,19 @@ def read(start, size):
     assert len(res) == size
     return bytes(bytearray(res))
 
-def disassemble(blocks):
-    bpf_dbg_str = b'%d' % len(blocks)
-    for b in blocks:
-        bpf_dbg_str += b',%d %d %d %d' % b
-    p = subprocess.Popen([get_bpf_dbg_path()],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = p.communicate(b'load bpf %s\ndisassemble\n' % bpf_dbg_str)
-    if err:
-        return 'Error: %s' % err.decode('utf-8')
-    else:
-        return out.decode('utf-8').split('>')[-2].split('disassemble\n')[1]
-
 def dump_filters(fprog_addr):
     fmt = {64: '<HxxxxxxQ', 32:'<HxxI'}[bits]
     num, filter_ary = struct.unpack(
             fmt, read(fprog_addr, struct.calcsize(fmt)))
     log('  fprog @ %016x'% fprog_addr)
     log('  %d blocks @ %016x' % (num, filter_ary))
-    block_fmt = '<HBBI'
-    block_sz = struct.calcsize(block_fmt)
     blocks = []
     for i in range(num):
-        block = struct.unpack(block_fmt, read(filter_ary + i*block_sz, block_sz))
+        block = struct.unpack(bpf.block_fmt,
+            read(filter_ary + i*bpf.block_sz, bpf.block_sz))
         blocks.append(block)
     log('  Disassembly:')
-    log('\n'.join('     %s' % line for line in disassemble(blocks).splitlines()))
+    log('\n'.join('     %s' % line for line in bpf.disassemble(blocks).splitlines()))
 
 memo = set()
 def stop_handler(evt):
